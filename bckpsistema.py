@@ -10,7 +10,6 @@ import xml.etree.ElementTree as ET
 from xml.dom import minidom
 import zipfile
 import json
-import random
 
 # --- Configuração da Página ---
 st.set_page_config(
@@ -61,69 +60,23 @@ CONFIG_FILE = os.path.join(BASE_DIR, "config_empresa.json")
 
 
 # --- Funções de Manipulação de Dados ---
-
-def criar_db_ficticio():
-    """
-    NOVO: Cria uma base de dados fictícia com 3 meses de dados para demonstração.
-    """
-    # 1. Produtos
-    produtos_data = [
-        {'Produto': 'Pizza Margherita', 'Categoria': 'Pizza Salgada', 'Preco_Venda': 55.00, 'Custo_Unitario': 15.50},
-        {'Produto': 'Pizza Pepperoni', 'Categoria': 'Pizza Salgada', 'Preco_Venda': 62.50, 'Custo_Unitario': 18.00},
-        {'Produto': 'Pizza Frango com Catupiry', 'Categoria': 'Pizza Salgada', 'Preco_Venda': 60.00, 'Custo_Unitario': 17.20},
-        {'Produto': 'Pizza Portuguesa', 'Categoria': 'Pizza Salgada', 'Preco_Venda': 65.00, 'Custo_Unitario': 19.50},
-        {'Produto': 'Pizza Quatro Queijos', 'Categoria': 'Pizza Salgada', 'Preco_Venda': 63.00, 'Custo_Unitario': 20.00},
-        {'Produto': 'Pizza de Chocolate', 'Categoria': 'Pizza Doce', 'Preco_Venda': 58.00, 'Custo_Unitario': 16.00},
-        {'Produto': 'Coca-Cola 2L', 'Categoria': 'Bebida', 'Preco_Venda': 12.00, 'Custo_Unitario': 6.50},
-        {'Produto': 'Guaraná Antarctica 2L', 'Categoria': 'Bebida', 'Preco_Venda': 11.00, 'Custo_Unitario': 6.00},
-        {'Produto': 'Água Mineral 500ml', 'Categoria': 'Bebida', 'Preco_Venda': 5.00, 'Custo_Unitario': 2.00},
-        {'Produto': 'Brownie de Chocolate', 'Categoria': 'Sobremesa', 'Preco_Venda': 15.00, 'Custo_Unitario': 7.00}
-    ]
-    df_produtos = pd.DataFrame(produtos_data)
-
-    # 2. Estoque
-    df_estoque = pd.DataFrame({
-        'Produto': df_produtos['Produto'],
-        'Quantidade_Estoque': [random.randint(50, 200) for _ in df_produtos['Produto']]
-    })
-
-    # 3. Vendas (últimos 90 dias)
-    vendas_list = []
-    hoje = datetime.now()
-    lista_produtos = df_produtos['Produto'].tolist()
-    for i in range(90):
-        data_venda = hoje - timedelta(days=i)
-        num_vendas_dia = random.randint(5, 25)
-        for _ in range(num_vendas_dia):
-            produto_vendido = random.choice(lista_produtos)
-            vendas_list.append({
-                'Data': data_venda.replace(hour=random.randint(18, 22), minute=random.randint(0, 59)),
-                'Produto': produto_vendido,
-                'Quantidade': random.randint(1, 3),
-                'CPF_Cliente': '' # Opcional
-            })
-    df_vendas = pd.DataFrame(vendas_list)
-
-    # 4. Compras (algumas despesas fictícias)
-    compras_data = [
-        {'Data': hoje - timedelta(days=30), 'Item': 'Compra de Farinha e Queijo', 'Valor': 1250.00, 'Fornecedor': 'Distribuidora Alimentos Bons', 'Categoria_Despesa': 'Mercadorias'},
-        {'Data': hoje - timedelta(days=5), 'Item': 'Pagamento de Aluguel', 'Valor': 3500.00, 'Fornecedor': 'Imobiliária Central', 'Categoria_Despesa': 'Aluguel'},
-        {'Data': hoje - timedelta(days=2), 'Item': 'Compra de Embalagens', 'Valor': 450.00, 'Fornecedor': 'EmbalaTudo', 'Categoria_Despesa': 'Mercadorias'},
-    ]
-    df_compras = pd.DataFrame(compras_data)
-
+def criar_db_modelo():
+    df_produtos = pd.DataFrame(columns=['Produto', 'Categoria', 'Preco_Venda', 'Custo_Unitario'])
+    df_estoque = pd.DataFrame(columns=['Produto', 'Quantidade_Estoque'])
+    df_vendas = pd.DataFrame(columns=['Data', 'Produto', 'Quantidade', 'CPF_Cliente'])
+    df_compras = pd.DataFrame(columns=['Data', 'Item', 'Valor', 'Fornecedor', 'Categoria_Despesa'])
+    
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df_produtos.to_excel(writer, index=False, sheet_name='Cardapio')
         df_estoque.to_excel(writer, index=False, sheet_name='Estoque')
         df_vendas.to_excel(writer, index=False, sheet_name='Vendas')
         df_compras.to_excel(writer, index=False, sheet_name='Compras')
-
+    
     return output.getvalue()
 
-
 def inicializar_arquivos():
-    st.info("Base de dados não encontrada. Criando arquivos iniciais com dados de exemplo...")
+    st.info("Base de dados não encontrada. Criando arquivos iniciais...")
     config_default = {
         "nome_fantasia": "Pizzaria Casa Velha", "razao_social": "Pizzaria Casa Velha LTDA",
         "cnpj": "00.000.000/0001-00", "endereco": "Rua das Pizzas, 123, Bairro Centro",
@@ -131,12 +84,9 @@ def inicializar_arquivos():
     }
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(config_default, f, indent=4)
-    
-    # ATUALIZADO: Chama a função que cria dados fictícios
-    db_modelo_data = criar_db_ficticio()
+    db_modelo_data = criar_db_modelo()
     with open(DB_FILE, "wb") as f:
         f.write(db_modelo_data)
-    
     st.success("Arquivos de base de dados criados com sucesso!")
     st.info("A aplicação será recarregada em 3 segundos...")
     time.sleep(3)
@@ -153,7 +103,7 @@ def carregar_dados_para_edicao():
             st.session_state['df_vendas'] = pd.read_excel(xls, 'Vendas')
             if 'Compras' in xls.sheet_names:
                 st.session_state['df_compras'] = pd.read_excel(xls, 'Compras')
-            else:
+            else: 
                 st.session_state['df_compras'] = pd.DataFrame(columns=['Data', 'Item', 'Valor', 'Fornecedor', 'Categoria_Despesa'])
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             st.session_state['config_empresa'] = json.load(f)
@@ -161,7 +111,7 @@ def carregar_dados_para_edicao():
         st.error(f"Ocorreu um erro ao carregar os dados: {e}")
         st.warning(f"Verifique se os ficheiros de dados não estão corrompidos. Se necessário, apague-os para que o sistema os crie novamente.")
         st.stop()
-
+        
 def salvar_dados(config_empresa, produtos, estoque, vendas, compras):
     produtos_df = produtos.dropna(subset=['Produto'])
     produtos_atuais = produtos_df['Produto'].unique()
@@ -183,51 +133,31 @@ def salvar_dados(config_empresa, produtos, estoque, vendas, compras):
     st.toast("🎉 Dados salvos com sucesso!", icon='✅')
 
 def gerar_xml_nfc(venda_info, produtos_info):
-    """
-    CORRIGIDO: Função de geração de XML com número de nota e data corrigidos.
-    """
     nfe = ET.Element("NFe", xmlns="http://www.portalfiscal.inf.br/nfe")
-    infNFe = ET.SubElement(nfe, "infNFe", versao="4.00", Id=f"NFe{venda_info.name}") # Id é opcional mas bom ter
-
+    infNFe = ET.SubElement(nfe, "infNFe", versao="4.00")
     ide = ET.SubElement(infNFe, "ide")
-    ET.SubElement(ide, "cUF").text = "35"  # Exemplo: SP
+    ET.SubElement(ide, "cUF").text = "50" 
     ET.SubElement(ide, "natOp").text = "VENDA"
-    ET.SubElement(ide, "mod").text = "65"  # NFC-e
+    ET.SubElement(ide, "mod").text = "65" 
     ET.SubElement(ide, "serie").text = "1"
-    # CORREÇÃO: Usar o índice da venda como número da nota fiscal. É único.
-    ET.SubElement(ide, "nNF").text = str(venda_info.name)
-    # CORREÇÃO: Formatar a data/hora com fuso horário padrão do Brasil (-03:00)
-    ET.SubElement(ide, "dhEmi").text = pd.to_datetime(venda_info['Data']).strftime('%Y-%m-%dT%H:%M:%S-03:00')
-    ET.SubElement(ide, "tpNF").text = "1" # 1 - Saída
-    ET.SubElement(ide, "idDest").text = "1" # 1 - Operação interna
-    ET.SubElement(ide, "tpImp").text = "4" # 4 - DANFE NFC-e
-    ET.SubElement(ide, "tpEmis").text = "1" # 1 - Emissão normal
-    ET.SubElement(ide, "finNFe").text = "1" # 1 - NFe normal
-    ET.SubElement(ide, "indFinal").text = "1" # 1 - Consumidor final
-    ET.SubElement(ide, "indPres").text = "1" # 1 - Operação presencial
-    ET.SubElement(ide, "procEmi").text = "0" # 0 - Emissão com aplicativo do contribuinte
-    ET.SubElement(ide, "verProc").text = "GMaster 1.0"
-
-
+    ET.SubElement(ide, "nNF").text = str(venda_info.name + 1) 
+    ET.SubElement(ide, "dhEmi").text = pd.to_datetime(venda_info['Data']).isoformat()
     emit = ET.SubElement(infNFe, "emit")
     ET.SubElement(emit, "CNPJ").text = st.session_state['config_empresa'].get('cnpj', '').replace('.', '').replace('/', '').replace('-', '')
     ET.SubElement(emit, "xNome").text = st.session_state['config_empresa'].get('razao_social', '')
-
-    if 'CPF_Cliente' in venda_info and pd.notna(venda_info['CPF_Cliente']) and venda_info['CPF_Cliente']:
+    if 'CPF_Cliente' in venda_info and pd.notna(venda_info['CPF_Cliente']):
         dest = ET.SubElement(infNFe, "dest")
         ET.SubElement(dest, "CPF").text = str(venda_info['CPF_Cliente']).replace('.', '').replace('-', '')
-    
     total_nota = 0
     for i, row in produtos_info.reset_index(drop=True).iterrows():
         det = ET.SubElement(infNFe, "det", nItem=str(i + 1))
         prod = ET.SubElement(det, "prod")
-        ET.SubElement(prod, "cProd").text = f"P{row.name}" # Usando o índice original do produto
+        ET.SubElement(prod, "cProd").text = f"P{i+1}"
         ET.SubElement(prod, "xProd").text = row['Produto']
-        ET.SubElement(prod, "NCM").text = "21069090"  # Código genérico para alimentos
+        ET.SubElement(prod, "NCM").text = "21069090" 
         ET.SubElement(prod, "CFOP").text = "5102"
         ET.SubElement(prod, "uCom").text = "UN"
         ET.SubElement(prod, "qCom").text = f"{row['Quantidade']:.4f}"
-        # CORREÇÃO: Formatação explícita para 10 casas decimais como exige o padrão
         ET.SubElement(prod, "vUnCom").text = f"{row['Preco_Venda']:.10f}"
         vProd = row['Quantidade'] * row['Preco_Venda']
         total_nota += vProd
@@ -236,19 +166,16 @@ def gerar_xml_nfc(venda_info, produtos_info):
         ET.SubElement(prod, "qTrib").text = f"{row['Quantidade']:.4f}"
         ET.SubElement(prod, "vUnTrib").text = f"{row['Preco_Venda']:.10f}"
         ET.SubElement(prod, "indTot").text = "1"
-
     total = ET.SubElement(infNFe, "total")
     ICMSTot = ET.SubElement(total, "ICMSTot")
     ET.SubElement(ICMSTot, "vBC").text = "0.00"
     ET.SubElement(ICMSTot, "vICMS").text = "0.00"
     ET.SubElement(ICMSTot, "vProd").text = f"{total_nota:.2f}"
     ET.SubElement(ICMSTot, "vNF").text = f"{total_nota:.2f}"
-    
     pag = ET.SubElement(infNFe, "pag")
     detPag = ET.SubElement(pag, "detPag")
-    ET.SubElement(detPag, "tPag").text = "01"  # 01=Dinheiro
+    ET.SubElement(detPag, "tPag").text = "01" 
     ET.SubElement(detPag, "vPag").text = f"{total_nota:.2f}"
-    
     xml_string = ET.tostring(nfe, 'utf-8')
     dom = minidom.parseString(xml_string)
     return dom.toprettyxml(indent="  ", encoding="utf-8")
@@ -303,7 +230,7 @@ def preparar_dados_analise(vendas_df, produtos_df):
     vendas_df_copy['Quantidade'] = pd.to_numeric(vendas_df_copy['Quantidade'], errors='coerce').fillna(0)
     vendas_detalhadas = pd.merge(vendas_df_copy, produtos_df_copy, on='Produto', how='left')
     vendas_validas = vendas_detalhadas[
-        (vendas_detalhadas['Preco_Venda'] > 0) &
+        (vendas_detalhadas['Preco_Venda'] > 0) & 
         (vendas_detalhadas['Custo_Unitario'] > 0)
     ].copy()
     if not vendas_validas.empty:
@@ -318,6 +245,7 @@ with tab_dashboard:
     st.header("Análise de Desempenho Rápida")
     vendas_detalhadas_dash = preparar_dados_analise(st.session_state['df_vendas'], st.session_state['df_produtos'])
     
+    # NOVO: Lógica de avisos
     if vendas_detalhadas_dash.empty:
         st.date_input("Data de Início", datetime.now().date(), key="dash_inicio_empty", disabled=True)
         st.date_input("Data de Fim", datetime.now().date(), key="dash_fim_empty", disabled=True)
@@ -332,16 +260,13 @@ with tab_dashboard:
     else:
         data_min_real = vendas_detalhadas_dash['Data'].min().date()
         data_max_real = vendas_detalhadas_dash['Data'].max().date()
-        data_inicio = pd.to_datetime(st.date_input("Data de Início", data_min_real, min_value=data_min_real, max_value=data_max_real, key="dash_inicio"))
-        data_fim = pd.to_datetime(st.date_input("Data de Fim", data_max_real, min_value=data_min_real, max_value=data_max_real, key="dash_fim")) + timedelta(days=1)
-        
+        data_inicio = pd.to_datetime(st.date_input("Data de Início", data_min_real, key="dash_inicio"))
+        data_fim = pd.to_datetime(st.date_input("Data de Fim", data_max_real, key="dash_fim")) + timedelta(days=1)
         vendas_filtradas = vendas_detalhadas_dash[(vendas_detalhadas_dash['Data'] >= data_inicio) & (vendas_detalhadas_dash['Data'] < data_fim)]
-        
         kpi1, kpi2, kpi3 = st.columns(3)
         kpi1.metric("Receita Total", f"R$ {vendas_filtradas['Receita'].sum():.2f}")
         kpi2.metric("Lucro Total", f"R$ {vendas_filtradas['Lucro'].sum():.2f}")
         kpi3.metric("Total de Itens Vendidos", f"{int(vendas_filtradas['Quantidade'].sum())}")
-        
         if not vendas_filtradas.empty:
             g1, g2 = st.columns(2)
             with g1:
@@ -359,6 +284,7 @@ with tab_admin:
     st.header("👑 Central de Desempenho")
     vendas_para_analise = preparar_dados_analise(st.session_state['df_vendas'], st.session_state['df_produtos'])
     
+    # NOVO: Lógica de avisos melhorada
     if vendas_para_analise.empty:
         if not st.session_state['df_vendas'].empty:
             st.warning("📊 Você tem vendas registradas, mas elas não estão aparecendo nos gráficos! Verifique se os produtos vendidos têm 'Preço de Venda' e 'Custo Unitário' maiores que zero na aba 'Cardápio'.")
@@ -474,37 +400,22 @@ with tab_fiscal:
     vendas_df_fiscal = st.session_state['df_vendas'].copy()
     if not vendas_df_fiscal.empty:
         vendas_df_fiscal['Data'] = pd.to_datetime(vendas_df_fiscal['Data'])
-        # Ordenar por data para mostrar as mais recentes primeiro
-        vendas_recentes = vendas_df_fiscal.sort_values(by='Data', ascending=False).head(20)
-        
+        vendas_recentes = vendas_df_fiscal.tail(10).sort_index(ascending=False)
         vendas_recentes['display'] = vendas_recentes.apply(lambda row: f"ID {row.name} - {row['Produto']} ({int(row['Quantidade']) if pd.notna(row['Quantidade']) else 0}x) - {row['Data'].strftime('%d/%m/%Y %H:%M')}", axis=1)
-        
         venda_selecionada_display = st.selectbox("Selecione uma Venda Recente", options=vendas_recentes['display'])
-        
         if venda_selecionada_display:
             venda_id = int(venda_selecionada_display.split(" ")[1])
             venda_info = vendas_df_fiscal.loc[venda_id]
-            
-            # O produto é pego do cardápio usando o nome salvo na venda
             produto_info_venda = st.session_state['df_produtos'][st.session_state['df_produtos']['Produto'] == venda_info['Produto']].copy()
-            
             if not produto_info_venda.empty:
-                # Adiciona a quantidade da venda específica ao df do produto para a função do XML
                 produto_info_venda['Quantidade'] = venda_info['Quantidade']
-                
                 st.write("Detalhes da Venda Selecionada:")
                 st.dataframe(pd.DataFrame([venda_info]))
-                
                 if st.button("Gerar XML da NFC-e"):
                     xml_data = gerar_xml_nfc(venda_info, produto_info_venda)
-                    st.download_button(
-                        label="Baixar XML para Emissão",
-                        data=xml_data,
-                        file_name=f"nfce_{venda_id}.xml",
-                        mime="application/xml"
-                    )
+                    st.download_button(label="Baixar XML para Emissão", data=xml_data, file_name=f"nfce_{venda_id}.xml", mime="application/xml")
             else:
-                st.error(f"Produto '{venda_info['Produto']}' associado a esta venda não foi encontrado no cardápio atual. Verifique o nome do produto.")
+                st.error("Produto associado a esta venda não foi encontrado no cardápio atual.")
     else:
         st.warning("Nenhuma venda registrada para gerar XML.")
     st.divider()
@@ -517,7 +428,6 @@ with tab_fiscal:
             st.warning("Nenhuma venda registrada hoje para gerar os XMLs.")
         else:
             zip_buffer = BytesIO()
-            erros_geracao = []
             with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
                 for index, venda_info in vendas_do_dia.iterrows():
                     produto_info = st.session_state['df_produtos'][st.session_state['df_produtos']['Produto'] == venda_info['Produto']].copy()
@@ -525,19 +435,7 @@ with tab_fiscal:
                         produto_info['Quantidade'] = venda_info['Quantidade']
                         xml_data = gerar_xml_nfc(venda_info, produto_info)
                         zip_file.writestr(f"nfce_{index}.xml", xml_data)
-                    else:
-                        erros_geracao.append(index)
-
-            if erros_geracao:
-                st.error(f"Não foi possível gerar XML para as vendas com ID: {erros_geracao}. Os produtos não foram encontrados no cardápio.")
-
-            st.download_button(
-                label=f"Baixar {len(vendas_do_dia) - len(erros_geracao)} XMLs do Dia (.zip)",
-                data=zip_buffer.getvalue(),
-                file_name=f"XMLs_{hoje.strftime('%Y%m%d')}.zip",
-                mime="application/zip"
-            )
-
+            st.download_button(label=f"Baixar {len(vendas_do_dia)} XMLs do Dia (.zip)", data=zip_buffer.getvalue(), file_name=f"XMLs_{hoje.strftime('%Y%m%d')}.zip", mime="application/zip")
     st.divider()
     st.subheader("Integração com Emissor Sebrae")
     st.markdown("""
@@ -581,6 +479,7 @@ if st.sidebar.button("Salvar TODAS as Alterações", type="primary", help="Salva
     )
     st.rerun()
 
+# NOVO: Botão para atualizar os gráficos manualmente
 st.sidebar.divider()
 if st.sidebar.button("🔄 Atualizar Gráficos", help="Recarrega os dados e atualiza os gráficos de análise."):
     st.rerun()
